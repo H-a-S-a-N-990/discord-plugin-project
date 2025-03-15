@@ -1,0 +1,38 @@
+name: Ngrok SSH Access
+
+on:
+  push:
+    branches:
+      - main  # Change as needed
+  workflow_dispatch:  # Allows manual execution
+
+jobs:
+  ssh-server:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install and Configure SSH
+        run: |
+          sudo apt update
+          sudo apt install -y openssh-server
+          sudo systemctl enable ssh
+          sudo systemctl start ssh
+          echo "root:password123" | sudo chpasswd  # Change the password
+          sudo sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+          sudo systemctl restart ssh
+
+      - name: Install Ngrok
+        run: |
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install -y ngrok
+
+      - name: Authenticate Ngrok
+        run: |
+          ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+
+      - name: Start Ngrok Tunnel
+        run: |
+          nohup ngrok tcp 22 --log=stdout > ngrok.log & sleep 5
+          NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "Ngrok TCP URL: $NGROK_URL"
+          echo "Ngrok TCP URL: $NGROK_URL" >> $GITHUB_STEP_SUMMARY
