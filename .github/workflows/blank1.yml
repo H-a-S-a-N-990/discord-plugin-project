@@ -12,13 +12,20 @@ jobs:
       - name: Install XFCE, VNC Server, and NoVNC
         run: |
           sudo apt update
-          sudo apt install -y xfce4 xfce4-goodies x11vnc novnc websockify jq
+          sudo apt install -y xfce4 xfce4-goodies x11vnc novnc websockify jq xvfb
 
-          # Start VNC Server without authentication
-          nohup x11vnc -display :0 -forever -nopw > vnc.log 2>&1 &
+          # Start a virtual display (X server)
+          nohup Xvfb :1 -screen 0 1024x768x16 &
 
-          # Start NoVNC (Web-based VNC)
-          nohup websockify --web /usr/share/novnc/ 6080 localhost:5900 > novnc.log 2>&1 &
+          # Set DISPLAY variable globally
+          echo "export DISPLAY=:1" >> ~/.bashrc
+          source ~/.bashrc
+
+          # Start VNC Server without authentication, listening on all interfaces
+          nohup x11vnc -display :1 -forever -nopw -listen 0.0.0.0 -rfbport 5900 > vnc.log 2>&1 &
+
+          # Start NoVNC with correct port mapping
+          nohup /usr/share/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 6080 > novnc.log 2>&1 &
 
       - name: Install Ngrok
         run: |
@@ -32,8 +39,15 @@ jobs:
       - name: Start Ngrok Tunnel for NoVNC
         run: |
           nohup ngrok http 6080 --log=stdout > ngrok.log 2>&1 &
-          sleep 5  # Wait for Ngrok to start
-          curl -s http://localhost:4040/api/tunnels > tunnels.json
+          sleep 10  # Give Ngrok more time to start
+
+          # Check if Ngrok started properly
+          if ! curl -s http://localhost:4040/api/tunnels > tunnels.json; then
+            echo "Ngrok failed to start"
+            cat ngrok.log
+            exit 1
+          fi
+
           NGROK_URL=$(jq -r '.tunnels[0].public_url' tunnels.json)
           echo "Ngrok NoVNC URL: $NGROK_URL"
           echo "Access your Ubuntu desktop in the browser at: $NGROK_URL" >> $GITHUB_STEP_SUMMARY
