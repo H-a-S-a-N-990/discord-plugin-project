@@ -17,7 +17,7 @@ jobs:
 
     - name: Install GameAP (Auto-confirm Prompts)
       run: |
-        yes | bash <(curl -s https://gameap.com/install.sh) \
+        echo -e "Y\nY\nY\nY\nY\nY\nY\nY\nY\nY" | bash <(curl -s https://gameap.com/install.sh) \
           --path=/var/www/gameap \
           --web-server=nginx \
           --database=mysql \
