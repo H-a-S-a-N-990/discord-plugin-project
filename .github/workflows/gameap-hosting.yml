@@ -1,0 +1,45 @@
+name: Run GameAP on GitHub Actions
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Install Dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y curl nginx mysql-server 
+
+    - name: Install GameAP
+      run: |
+        bash <(curl -s https://gameap.com/install.sh) \
+          --path=/var/www/gameap \
+          --web-server=nginx \
+          --database=mysql \
+          --host=http://127.0.0.1 \
+          --port=80
+
+    - name: Start Services
+      run: |
+        sudo systemctl restart nginx
+        sudo systemctl restart mysql
+
+    - name: Download and Setup Cloudflare Tunnel
+      run: |
+        wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
+        chmod +x cloudflared
+
+    - name: Start Cloudflare Tunnel
+      env:
+        PORT: 80
+      run: |
+        ./cloudflared tunnel --url http://127.0.0.1:$PORT --metrics localhost:45678 &
+        sleep 10
+
+    - name: Keep Running for 6 Hours
+      run: sleep 21600
