@@ -15,9 +15,9 @@ jobs:
         sudo apt update
         sudo apt install -y curl nginx mysql-server 
 
-    - name: Install GameAP
+    - name: Install GameAP (Auto-confirm Prompts)
       run: |
-        bash <(curl -s https://gameap.com/install.sh) \
+        yes | bash <(curl -s https://gameap.com/install.sh) \
           --path=/var/www/gameap \
           --web-server=nginx \
           --database=mysql \
